@@ -24,7 +24,7 @@ async def request(
     if re.status_code != 200:
         logging.error("stauts: %d %s" %(re.status_code, url))
         return None
-    return re.json()
+    return re.json() if len(re.json()) > 0 else None
 
 async def wrap(model: T, data: Dict[Any, Any]) -> List[T]:
     return [model.parse_obj(item) for item in data]
@@ -77,11 +77,12 @@ async def combined(
         path: str,
         product_type: Union[str, int], 
         page: Union[str, int]
-    ) -> None:
+    ) -> bool:
     products = await getProductInfo(product_type, page)
     if products == None:
         logging.error(
                 "can't get product on page %s in %s" %(page, product_type))
+        return False
     args = [i.sku_id for i in products]
     comment = await getProductComment(args)
     if comment == None:
@@ -92,22 +93,23 @@ async def combined(
                     type = product_type
                     )
                 )
+        return False
     
     for index in range(len(products)):
-        if products[index].sku_id == comment[index].SkuId:
-            products[index].comment = comment[index]
-        else:
-            raise
+        products[index].comment = comment[index]
 
     await writeJSON(path, products)
+    return True
 
 async def combineds(
         path: str,
-        product_type: Union[str, int], 
-        page: Union[str, int]
+        type: ProductType,
+        page: Union[str, int],
     ) -> None:
     for i in range(1, int(page)+1):
-        await combined(path, product_type, page)
-        logging.info("sucess page %s in %s on %s" %(page, path, product_type))
-        await asyncio.sleep(5)        
+        res = await combined(path, type.Classification, page)
+        #logging.info("sucess page %s in %s on %s" %(page, path, type.Classification))
+        if res:
+            print("sucess page %s in %s on %s" %(page, path, type.Classification))
+            await asyncio.sleep(5)        
 

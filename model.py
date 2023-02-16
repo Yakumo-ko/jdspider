@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel 
 
 class ProductType(BaseModel):
     Classification: str
@@ -23,7 +23,6 @@ class Product(BaseModel):
         good_shop: str
 
     ad_title: str
-    good_rate: str
     image_url: str
     link_url: str
     sku_id: str
@@ -31,4 +30,5 @@ class Product(BaseModel):
     shop_link: Shop
 
     comment: Optional[ProductComment]
+
 
