@@ -1,52 +1,42 @@
 import asyncio
+from asyncio.tasks import create_task
 from typing import Coroutine, List
+from model import ProductType
 
 from spider import (getProductList, getProductType, combineds)
 
-product_type_url = "https://search.jd.com/category.php?keyword=食品&stop=1&qrst=1&vt=2&suggest=1.his.0.0&pvid=556773238ff942368a86481067361e59&cid3=31647&cid2=1583&c=all"
+#product_type_url = "https://search.jd.com/category.php?keyword=食品&stop=1&qrst=1&vt=2&suggest=1.his.0.0&pvid=556773238ff942368a86481067361e59&cid3=31647&cid2=1583&c=all"
+product_type_url  = "https://search.jd.com/category.php?keyword=%E9%A3%9F%E5%93%81&stop=1&qrst=1&vt=2&suggest=1.his.0.0&pvid=24c4e72481ec4aa69aab5da994f6fe4c&cid3=5020&cid2=5019&c=all"
 
-"""
 async def main(page: int = 1):
     types = await getProductType(product_type_url)
 
-    async_funcs: List[Coroutine] = []
+    async_funcs = []
     for i in types:
-        if page * 30 > int(i.Count):
-            page = int(i.Count) // 30 + 1
-        async_funcs.append(
-                combineds(
-                    f"./data/{i.Name.replace('/', '-')}.json", 
-                    i, 
-                    page
-                )
-            )
-
-    asyncio.gather(*async_funcs) 
-"""
-async def main(page: int = 1):
-    types = await getProductType(product_type_url)
-
-    async_funcs: List[Coroutine] = []
-    for i in types:
-       async_funcs.append(combineds(
+       async_funcs.append(asyncio.create_task(combineds(
                 f"./data/{i.Name.replace('/', '-')}.json", 
                 i, 
                 page, 
                 '食品'
-            ))
-    asyncio.gather(*async_funcs) 
+            )))
+    await asyncio.gather(*async_funcs) 
 
-#asyncio.run(main())
 
-url = "https://search.jd.com/s_new.php?keyword=食品&cid3=1595&cid2=1583&page=1&s=0"
+asyncio.run(main(50))
+"""
+t = ProductType.parse_obj({
+    "Classification": 5019,
+    "FClassification": 0,
+    "Count": 100000, 
+    "Name": '进口食品' 
+    })
 
-async def tmp():
-    types = await getProductType(product_type_url)
-    await combineds(
-                f"./data/{types[0].Name.replace('/', '-')}.json", 
-                types[0], 
+
+asyncio.run(combineds(
+                f"./data/{t.Name.replace('/', '-')}.json", 
+                t, 
                 50,
                 '食品'
-                )
 
-asyncio.run(main())
+    ))
+"""

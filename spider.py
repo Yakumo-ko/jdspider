@@ -99,6 +99,7 @@ async def getProductList(
         )
     assert row != None
     list = BeautifulSoup(row, "lxml").find_all("li")
+    assert len(list) > 0, f"error: {row}"
 
     products = []
     for item in list:
@@ -177,5 +178,8 @@ async def combineds(
         #logging.info("sucess page %s in %s on %s" %(page, path, type.Classification))
         if res:
             print("sucess page %s in %s on %s" %(i, path, p_type.Classification))
+        if i * 25 > int(p_type.Count):
+            print("%s > %s, finish this task id: %s" %(i * 25, p_type.Count, p_type.Classification))
+            break;
         await asyncio.sleep(random.randint(3, 6))        
 
