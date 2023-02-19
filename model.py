@@ -5,6 +5,7 @@ from pydantic import BaseModel
 class ProductType(BaseModel):
     Classification: str
     FClassification: str
+    Field: str
     Count: str
     Name: str
 
