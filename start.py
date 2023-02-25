@@ -7,6 +7,11 @@ product_type_url = "https://search.jd.com/category.php?keyword=食品&stop=1&qrs
 
 async def main(page: int = 1):
     types = await getProductType(product_type_url)
+    """
+    for item in types:
+        print(f"{item.Classification}-{item.Name}")
+    return 
+    """
     async_funcs = []
     for i in types:
        async_funcs.append(asyncio.create_task(combineds(

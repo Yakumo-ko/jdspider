@@ -68,7 +68,7 @@ def importData(path: str, gtype: int) -> None:
     product_sql: str = """insert into `spring`.`product`
                 (`sku_id`, `type`, `image_url`, `link_url`, `price`,
                 `shop`, `shop_url`, `title`)
-                values({0}, {1}, '{2}', '{3}', {4}, '{5}', '{6}', "{7}")
+                values({0}, {1}, "{2}", "{3}", {4}, "{5}", "{6}", "{7}")
                 """
     db = pymysql.connect(
             host="localhost", 
@@ -84,8 +84,12 @@ def importData(path: str, gtype: int) -> None:
     
 
     cursor = db.cursor()
+    a = set()
     for item in json_data:
         t = Product.parse_obj(item)
+        if t.sku_id in a:
+            continue
+        a.add(t.sku_id)
 
         cursor.execute(product_sql.format 
                        (int(t.sku_id), 
@@ -109,43 +113,21 @@ def importData(path: str, gtype: int) -> None:
                         toNum(t.comment.PoorCountStr),
                         toNum(t.comment.VideoCountStr)
                            ))
-    #db.commit()
-
-a = {}
-def tmp(path):
-    json_data = None
-    with open(path, mode='r', encoding='utf-8') as f:
-        json_data = json.load(f)['data']
-        for item in json_data:
-            t = int(item['sku_id'])
-            if t in a:
-                a[t].append(item)
-                continue
-            a[t] = [item]
-        
-
-    for k,v in a.items():
-        if len(v) > 1:
-            print(v)
-            print()
-
-
-tmp("./data/悠闲零食/坚果炒货.json") 
-            
-    
+    db.commit()
 
 
 
 
-"""
-id = 1591 
-paths = os.listdir('./data/悠闲零食') 
+with open('./tmp.txt') as f:
+    while f.readable():
+        text = f.readline().split('-')
+        print(text)
+        if len(text) == 0:
+            break
+        id = int(text[0])
+        name = text[1].replace('/', '-').replace('\n', '')
+        importData("./data/悠闲零食/" + name + ".json", id)
 
-for name in paths:
-    print(name)
-    importData("./data/悠闲零食/" + name, id)
-
-"""
 
 
 
