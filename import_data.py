@@ -56,7 +56,6 @@ def  toNum(num: str) -> int:
         return int(float(num.replace('万', '')) * 10000) + random.randint(0, 9999);
     return int(num) + random.randint(0, int(num)//10);
 
-a = set()
 
 def importData(path: str, gtype: int) -> None: 
     comment_sql: str = """insert into `spring`.`comment`
@@ -85,9 +84,11 @@ def importData(path: str, gtype: int) -> None:
 
     cursor = db.cursor()
     a = set()
+    count: int = 0
     for item in json_data:
         t = Product.parse_obj(item)
         if t.sku_id in a:
+            count += 1
             continue
         a.add(t.sku_id)
 
@@ -114,8 +115,7 @@ def importData(path: str, gtype: int) -> None:
                         toNum(t.comment.VideoCountStr)
                            ))
     db.commit()
-
-
+    print(f"all {count}, valid: {len(a)} in {path}")
 
 
 with open('./tmp.txt') as f:
@@ -127,6 +127,7 @@ with open('./tmp.txt') as f:
         id = int(text[0])
         name = text[1].replace('/', '-').replace('\n', '')
         importData("./data/悠闲零食/" + name + ".json", id)
+
 
 
 

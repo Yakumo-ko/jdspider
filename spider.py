@@ -1,6 +1,6 @@
 import asyncio
 import os
-from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 import json
 import random
 import time
@@ -13,8 +13,7 @@ import httpx
 from model import (AdProduct, 
                    ProductType, 
                    ProductComment, 
-                   Product, 
-                   ProductTypeEnum)
+                   Product)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -26,16 +25,25 @@ headers = {
 
 async def request(
         url: str, 
-        type: Optional[int] = ProductTypeEnum.json, 
         headers: Optional[Dict[str, str]] = headers
-    ) -> Union[Dict[Any, Any], str, None]:
-    re = httpx.get(url = url, headers=headers)
+    ) -> httpx.Response:
+    re = httpx.get(url=url, headers=headers)
     if re.status_code != 200:
         logging.error("stauts: %d %s" %(re.status_code, url))
-        return None
-    if type != ProductTypeEnum.json:
-        return re.text
-    return re.json() if len(re.json()) > 0 else None
+        raise 
+    return re
+
+async def requestJson(
+        url: str, 
+        headers: Optional[Dict[str, str]] = headers
+    )->Dict[Any, Any]:
+    return (await request(url, headers)).json()
+
+async def requestHtml(
+        url: str, 
+        headers: Optional[Dict[str, str]] = headers
+        ) -> str:
+    return (await request(url, headers)).text
 
 async def wrap(model: T, data: Dict[Any, Any]) -> List[T]:
     return [model.parse_obj(item) for item in data]
@@ -58,11 +66,11 @@ async def writeJSON(path: str, data: List[Product]) -> None:
 async def getAdProductInfo(
         product_type: Union[str, int], 
         page: Union[str, int]
-    ) -> Union[List[AdProduct], None]:
+    ) -> List[AdProduct]:
 
     get_product_url = "https://search-x.jd.com/Search?area=20&enc=utf-8&keyword=食品&adType=7&urlcid3={product_type}&page={page}&ad_ids=291:19&xtest=new_search&_={timestamp}"
 
-    data = await request(
+    data = await requestJson(
             get_product_url.format(
                 product_type = product_type, 
                 page = page, 
@@ -70,7 +78,7 @@ async def getAdProductInfo(
                 ),
             headers=headers
             )    
-    return await wrap(AdProduct, data['291']) if data != None else None
+    return await wrap(AdProduct, data['291']) 
 
 async def getProductInfo(html: Tag) -> Product:
     p_img = html.find('div', class_='p-img')
@@ -91,15 +99,13 @@ async def getProductList(
         cid2: Union[str, int],
         cid3: Union[str, int],
         page: Union[str, int]
-    ) -> Union[List[Product], None]:
+    ) -> List[Product]:
     url = "https://search.jd.com/s_new.php?keyword={kw}&cid3={cid3}&cid2={cid2}&page={page}"
-    row = await request(
-            url.format(kw = keyword, cid2 = cid2, cid3 = cid3, page = page), 
-            ProductTypeEnum.string
+    row = await requestHtml(
+            url.format(kw = keyword, cid2 = cid2, cid3 = cid3, page = page) 
         )
-    assert row != None
     list = BeautifulSoup(row, "lxml").find_all("li")
-    assert len(list) > 0, f"error: {row}"
+    assert len(list) > 0, f"error: {row} in {url.format(kw = keyword, cid2 = cid2, cid3 = cid3, page = page)}"
 
     products = []
     for item in list:
@@ -110,44 +116,40 @@ async def getProductList(
 
 async def getProductComment(
         gid: List[str]
-    ) -> Union[List[ProductComment], None]:
+    ) -> List[ProductComment]:
     product_comment_url = "https://club.jd.com/comment/productCommentSummaries.action?referenceIds={args}&_={timestamp}"
     args = ",".join(gid)
-    data = await request(
+    data = await requestJson(
             product_comment_url.format(
                 args = args,
                 timestamp = int(time.time())
-                ), 
-            headers = headers
+                ) 
             )
-    if data == None:
-        return None
     return await wrap(ProductComment, data['CommentsCount']) 
     
-async def getProductType(url) -> Union[List[ProductType], None]:
-    data = await request(url, headers=headers)
-    return await wrap(ProductType, data['data']) if data != None else None
+async def getProductType(url) -> List[ProductType]:
+    data = await requestJson(url)
+    return await wrap(ProductType, data['data']) 
 
-P_Type = TypeVar('P_Type', str, int)
 Page = TypeVar('Page', str, int)
 
 async def combined(
         path: str,
-        p_type: P_Type, 
+        p_type: ProductType, 
         page: Page,
         keyword: str
     ) -> bool:
     products = await getProductList(keyword, 
-            p_type, 
-            p_type, 
+            p_type.FClassification, 
+            p_type.Classification, 
             page) 
-    if products == None:
+    if len(products) == 0:
         logging.error(
                 "can't get product on page %s in %s" %(page, p_type))
         return False
     args = [i.sku_id for i in products]
     comment = await getProductComment(args)
-    if comment == None:
+    if len(comment) == 0:
         logging.error(
                 "can't get comment for {args} on page {page} in {type}".format(
                     args = args,
@@ -166,13 +168,14 @@ async def combined(
 async def combineds(
         path: str,
         p_type: ProductType,
+        start_page: Page,
         page: Page,
         keyword: str,
     ) -> None:
-    for i in range(1, int(page)+1):
+    for i in range(int(start_page), int(page)+1):
         print("start %s page: %s cid3: %s" %(p_type.Name, i, p_type.Classification))
         res = await combined(path, 
-                            p_type.Classification, 
+                            p_type, 
                             i, 
                             keyword)
         #logging.info("sucess page %s in %s on %s" %(page, path, type.Classification))
@@ -181,5 +184,5 @@ async def combineds(
         if i * 25 > int(p_type.Count):
             print("%s > %s, finish this task id: %s" %(i * 25, p_type.Count, p_type.Classification))
             break;
-        await asyncio.sleep(random.randint(3, 6))        
+        await asyncio.sleep(random.randint(10, 30))        
 
