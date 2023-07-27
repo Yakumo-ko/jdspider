@@ -174,6 +174,9 @@ async def combineds(
     ) -> None:
     for i in range(int(start_page), int(page)+1):
         print("start %s page: %s cid3: %s" %(p_type.Name, i, p_type.Classification))
+        if i * 25 > int(p_type.Count):
+            print("%s > %s, finish this task id: %s" %(i * 25, p_type.Count, p_type.Classification))
+            break;
         res = await combined(path, 
                             p_type, 
                             i, 
@@ -181,8 +184,5 @@ async def combineds(
         #logging.info("sucess page %s in %s on %s" %(page, path, type.Classification))
         if res:
             print("sucess page %s in %s on %s" %(i, path, p_type.Classification))
-        if i * 25 > int(p_type.Count):
-            print("%s > %s, finish this task id: %s" %(i * 25, p_type.Count, p_type.Classification))
-            break;
-        await asyncio.sleep(random.randint(10, 30))        
+        await asyncio.sleep(random.randint(5, 10))        
 
